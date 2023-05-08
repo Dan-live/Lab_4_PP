@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include <math.h>
+#include <stdlib.h>
 #include <pthread.h>
 #include <semaphore.h>
 #include <unistd.h>
@@ -15,47 +15,57 @@ pthread_t thread4;
 pthread_t thread5;
 pthread_t thread6;
 //initialising functions for each thread
-void* P1(void*);
-void* P2(void*);
-void* P3(void*);
-void* P4(void*);
-void* P5(void*);
-void* P6(void*)
-
-pthread_mutex_t MCR1 = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t exit_mt = PTHREAD_MUTEX_INITIALIZER;
+// void* P1(void*);
+// void* P2(void*);
+// void* P3(void*);
+// void* P4(void*);
+// void* P5(void*);
+// void* P6(void*)
 
 sem_t sem_q;
+pthread_mutex_t MCR1 = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t Sig21_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t Sig21 = PTHREAD_COND_INITIALIZER;
+pthread_barrier_t BCR2;
+
+
+int flag21_P3P6_P2 = 0;
+int flag21_P3P6_P5 = 0;
 
 typedef struct
 {
-    int32_t data;
+    int data;
 } Elem;
 
 typedef struct
 {
 	Elem vec[SIZE];
-	size_t ind1, ind2;
+	int ind1, ind2;
 } VectorBuffer;
 
 VectorBuffer buff = {{{0}}, 0, 0};
+////////////
+//блок атомарных переменных
+int k = 12;
+int k2 = -1222;
+unsigned int b = 12123;
+unsigned int b2 = 10;
+long int c = 11111111;
+long int c2 = -3333333;
+unsigned long int d = 22222222;
+unsigned long int d2 = 121212123;
+//////////////////////
+//int amountExit = 0;
 
-//initialising atomic variables
-int atomic_int1 = 0, atomic_int2 = 0;
-unsigned int atomic_uint1 = 0, atomic_uint2 = 0;
-long atomic_long1 = 0, atomic_long2 = 0;
-unsigned long atomic_ulong1 = 0, atomic_ulong2 = 0;
-int amountExit = 0;
-
-void checking()
-{
-    if(isFull() || isEmpty())
-        amountExit++;
-}
-int isExit()
-{
-    return amountExit >= 2;
-}
+// void checking()
+// {
+//     if(isFull() || isEmpty())
+//         amountExit++;
+// }
+// int isExit()
+// {
+//     return amountExit >= 2;
+// }
 
 int isFull()
 {
@@ -86,46 +96,14 @@ int Get()
 	return result;
 }
 
-void produceElement()
-{
-		mutex_lock_macro(MCR1);
-		while(isFull())
-		{
-			overrun_control_macro();
-			if(overrun_cnt >= 2 && underrun_cnt >= 2)
-			{
-				Flag = 1;
-			}
-			pthread_cond_wait(&Sig1, &MCR1);
-		}
-		fprintf(logFile, "%s: Element struct=%li; element %i PRODUSED; \n", __FUNCTION__, CurrentSize, Set(rand() % 1000));
-		mutex_unlock_macro(MCR1);
-		pthread_cond_signal(&Sig2);
-}
-
-void consumeElement()
-{
-        mutex_lock_macro(MCR1);
-		while(isEmpty())
-		{
-			underrun_control_macro();
-			pthread_cond_wait(&Sig2, &MCR1);
-		}
-		int32_t data = Get();
-		mutex_unlock_macro(MCR1);
-		pthread_cond_signal(&Sig1);
-		fprintf(logFile, "%s: Element struct=%li; element %d CONSUMED; \n", __FUNCTION__, CurrentSize, data);
-		elemProcces(data);
-}
-
 void atomic_change()
 {
 
-    __sync_fetch_and_sub (&k, 1);
-    __sync_add_and_fetch (&k2, 1);
+    __sync_fetch_and_and (&k, 1);
+    __sync_fetch_and_add (&k2, 1);
 
     __sync_fetch_and_or(&b, 2);
-    __sync_fetch_and_nand(&b2, 3);
+    __sync_nand_and_fetch(&b2, 3);
 
     __sync_and_and_fetch (&c, 4);
     __sync_xor_and_fetch (&c2, 5);
@@ -139,24 +117,29 @@ __sync_val_compare_and_swap(&d2, 2, 3);
 void* P1(void* arg)//зроблено
 {
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+    int sem_value;
+    fprintf(file,"Thread 1 is started\n");
     while(1)
     {
-        if(isExit()) break;
+        if(isFull() || isEmpty()) break;
 
         sem_getvalue(&sem_q,&sem_value);
-        if (sem_value < max_queue_length) {
-/* Захоплення м'ютекса черги для додавання нового елементу */
-        pthread_mutex_lock (&MCR1);
-        fprintf(file, "Thread 1 locked MCR1\n");
-        Set(rand() % 1000)
+        if (sem_value < SIZE) 
+        {
 
-        sem_getvalue(&sem_q,&sem_value);
-        fprintf(file, "Thread 1 added value %d into CR1\n", CurrentSize);
+            pthread_mutex_lock (&MCR1);
+            fprintf(file, "Thread 1 locked MCR1\n");
+
+            int num = rand() % 1000; 
+            Set(num);
+
+            sem_getvalue(&sem_q,&sem_value);
+            fprintf(file, "P1(Produser) write %d to CR1", num);
         
-        pthread_mutex_unlock(&MCR1);
-        fprintf(file, "Thread 1 unlocked mutex MCR1\n");
-        sem_post (&sem_q)
-        fprintf(file, "Thread 1 end\n");
+            pthread_mutex_unlock(&MCR1);
+            fprintf(file, "Thread 1 unlocked mutex MCR1\n");
+            sem_post (&sem_q);
+            fprintf(file, "Thread 1 end\n");
         }
     }
     pthread_cancel(thread2);
@@ -174,39 +157,56 @@ void* P1(void* arg)//зроблено
 void* P2(void* arg)
 {
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
-    fprintf(file,"Thread 2 is enable\n");
-    long getvalue;
+    int sem_value;
+    //long getvalue;
+    fprintf(file,"Thread 2 is started\n");
     while(1)
     {
-        if(isExit()) break;
+        if(isFull() || isEmpty()) break;
+        //доступ до буфера за допомогою семафора та м'ютекса
+        
+        sem_getvalue(&sem_q,&sem_value);
+        if (sem_value < SIZE) 
+        {
+
+            pthread_mutex_lock (&MCR1);
+            fprintf(file, "Thread 2 locked MCR1\n");
+
+            int num = rand() % 1000; 
+            Set(num);
+
+            sem_getvalue(&sem_q,&sem_value);
+            fprintf(file, "P2(Produser) write %d to CR1", num);
+        
+            pthread_mutex_unlock(&MCR1);
+            fprintf(file, "Thread 2 unlocked mutex MCR1\n");
+            sem_post (&sem_q);
+        }
+        //Sig21 !!Зроблено!!
+
         pthread_mutex_lock(&Sig21_mutex);
-        while(!flag_p1p4_p2)
+
+        while(flag21_P3P6_P2 == 0)
         {
             fprintf(file,"Thread 2 waits Sig21\n");
             pthread_cond_wait(&Sig21, &Sig21_mutex);
         }
         fprintf(file,"Thread 2 got Sig21\n");
-        flag_p1p4_p2 = 0;
-        fprintf(file,"Thread 2 changed flag14_2\n");
+        flag21_P3P6_P2 = 0;
+        fprintf(file,"Thread 2 changed flag21_P3P6_P2\n");
+
         pthread_mutex_unlock(&Sig21_mutex);
-        fprintf(file, "Thread 2 unlocked Sig21_mutex\n");
-        getvalue = __sync_or_and_fetch(&atomic_long1, 0);
-        fprintf(file,"Thread 2 writing %ld to the CR1\n", getvalue);
-        pthread_mutex_lock(&MCR1);
-        if(isFull())
-        {
-            while(isFull())
-            {
-//Sig1 for producer
-                pthread_cond_wait(&Sig1,&MCR1);
-            }
-        }
-        push_back(getvalue);
-        fprintf(file, "Thread 2 pushed_back value %ld into CR1\n", getvalue);
-        pthread_mutex_unlock(&MCR1);
-        fprintf(file,"Thread 2 unlocked mutex MCR1\n");
-        pthread_cond_broadcast(&Sig2); // notFull
-        fprintf(file, "Thread 2 send signal Sig2 to all threads\n");
+        fprintf(file,"Thread 2 unlocked Sig21_mutex\n");
+
+        //використання а потім модифікація сигнальних змінних 
+        
+        int s = __sync_fetch_and_sub(&b, 0);
+        s = s + __sync_add_and_fetch(&k2, 0);
+        fprintf(file,"Thread 2 use atomic\n");
+        atomic_change();
+        fprintf(file,"Thread 2 modified atomic\n");
+
+
     }
     pthread_cancel(thread1);
     fprintf(file, "p2| p1 canceled\n");
@@ -223,27 +223,33 @@ void* P2(void* arg)
 void* P3(void* arg)
 {
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+    fprintf(file,"Thread 3 is started\n");
     while(1)
     {
-        if(isExit()) break;
-        pthread_mutex_lock(&MCR1);
-        fprintf(file,"thread 3 locked MC1\n");
-        if(isEmpty())
-        {
-            while (isEmpty())
-            {
-                fprintf(file,"Thread 3 is waiting for Sig2\n");
-                pthread_cond_wait(&Sig2, &MCR1);
-            }
-        }
-        pop_back();
-        fprintf(file,"Thread 3 uses pop_back\n");
-        pthread_mutex_unlock(&MCR1);
-        fprintf(file, "Thread 3 unlocked mutex\n");
-        pthread_cond_broadcast(&Sig1); // notFull
-        fprintf(file, "Thread 3 sent Sig1\n");
+        if(isEmpty()) break;
+        //модифікація атомарних змінних !!Зроблено!! 
+        fprintf(file,"Thread 3 modified atomic\n");
+        atomic_change();
+        //синхронізуємо через бар'єр Р3 і Р6
+
+        pthread_barrier_wait(&BCR2);
+        //Sig21 !!Зроблено!!
+        
+        pthread_mutex_lock(&Sig21_mutex);
+        fprintf(file,"Tread 3 locked Sig21_mutex \n");
+        flag21_P3P6_P2 = 1;
+        pthread_cond_signal(&Sig21);
+        fprintf(file, "Thread 3 UNlocked Sig21_mutex \n");
+        pthread_mutex_unlock(&Sig21_mutex);
+
+        //використання атормарних змінних
+        fprintf(file,"Thread 3 use atomic\n");
+        int s = __sync_fetch_and_add(&k, 0);
+        s = s + __sync_add_and_fetch(&k2, 0);
+    
+
     }
-    return NULL;
+
     pthread_cancel(thread1);
     fprintf(file, "p3| p1 canceled\n");
     pthread_cancel(thread2);
@@ -254,30 +260,29 @@ void* P3(void* arg)
     fprintf(file, "p3| p5 canceled\n");
     pthread_cancel(thread6);
     fprintf(file, "p3| p6 canceled\n");
+    return NULL;
 }
 void* P4(void* arg)//зроблено
 {
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+    int sem_value;
+    fprintf(file,"Thread 4 is started\n");
     while(1)
     {
-        if(isExit()) break;
+        if(isFull() || isEmpty()) break;
+        //доступ до буфера за допомогою семафора та м'ютекса 
+        sem_wait(&sem_q);
+        pthread_mutex_lock(&MCR1);
+        int value = Get();
 
-        sem_getvalue(&sem_q,&sem_value);
-        if (sem_value < max_queue_length) {
-/* Захоплення м'ютекса черги для додавання нового елементу */
-        pthread_mutex_lock (&MCR1);
-        fprintf(file, "Thread 4 locked MCR1\n");
-        Get();
-
-        sem_getvalue(&sem_q,&sem_value);
-        fprintf(file, "Thread 4 get value %d into CR1\n", CurrentSize);
+        sem_getvalue(&sem_q, &sem_value);
+        fprintf(file, "Thread 4 get value %d from CR1\n", value);
         
         pthread_mutex_unlock(&MCR1);
         fprintf(file, "Thread 4 unlocked mutex MCR1\n");
-        sem_post (&sem_q)
         fprintf(file, "Thread 4 end\n");
-        }
     }
+    
     pthread_cancel(thread1);
     fprintf(file, "p4| p1 canceled\n");
     pthread_cancel(thread2);
@@ -293,41 +298,44 @@ void* P4(void* arg)//зроблено
 void* P5(void* arg)
 {
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
-    unsigned long ul_getvalue;
+    fprintf(file,"Thread 5 is started\n");
+    int sem_value;
     while(1)
     {
-        if(isExit()) break;
+        if(isFull() || isEmpty()) break;
+        //доступ до буфера за допомогою семафора та м'ютекса 
+        sem_wait(&sem_q);
+        pthread_mutex_lock(&MCR1);
+        int value = Get();
+
+        sem_getvalue(&sem_q, &sem_value);
+        fprintf(file, "Thread 5 get value %d from CR1\n", value);
+        
+        pthread_mutex_unlock(&MCR1);
+        fprintf(file, "Thread 5 unlocked mutex MCR1\n");
+        //fprintf(file, "Thread 5 end\n");
+
+        //Sig21  !!Зроблено!!
         pthread_mutex_lock(&Sig21_mutex);
-        fprintf(file,"Thread 5 locked Sig21_mutex\n");
-        if(!flag_p1p4_p5)
+
+        while(flag21_P3P6_P5 == 0)
         {
-            while(!flag_p1p4_p5)
-            {
-                fprintf(file,"Thread 5 is waiting for Sig21\n");
-                pthread_cond_wait(&Sig21,&Sig21_mutex);
-            }
+            fprintf(file,"Thread 5 waits Sig21\n");
+            pthread_cond_wait(&Sig21, &Sig21_mutex);
         }
         fprintf(file, "Thread 5 got a Sig21\n");
-        flag_p1p4_p5 = 0;
-        fprintf(file,"Thread 5 changed flag14_5\n");
+        flag21_P3P6_P5 = 0;
+        fprintf(file,"Thread 5 changed flag21_P3P6_P5\n");
+
         pthread_mutex_unlock(&Sig21_mutex);
-        fprintf(file, "Thread 5 unlock sig21_mutex\n");
-        ul_getvalue = __sync_or_and_fetch(&atomic_ulong1, 0);
-        fprintf(file,"Thread 5 got variable %ld\n", ul_getvalue);
-        pthread_mutex_lock(&MCR1);
-        if(isFull())
-        {
-            while (isFull())
-            {
-                pthread_cond_wait(&Sig1, &MCR1);
-            }
-        }
-        push_back(ul_getvalue);
-        fprintf(file, "Thread 5 wrote %ld to the CR1\n", ul_getvalue);
-        pthread_mutex_unlock(&MCR1);
-        fprintf(file,"Thread 5 unlocked mutex CR1\n");
-        pthread_cond_broadcast(&Sig2); // notEmpty
-        fprintf(file, "Thread 5 sending Sig2\n");
+        fprintf(file,"Thread 5 unlocked Sig2_mutex\n");
+
+        //використання атомарних змінних
+        fprintf(file,"Thread 5 use atomic\n");
+        int s = __sync_fetch_and_sub(&k, 0);
+        s = s + __sync_add_and_fetch(&c2, 0);
+
+
     }
     pthread_cancel(thread1);
     fprintf(file, "p5| p1 canceled\n");
@@ -344,26 +352,35 @@ void* P5(void* arg)
 void* P6(void* arg)
 {
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+    fprintf(file,"Thread 6 is started\n");
     while(1)
     {
-        if(isExit()) break;
-        pthread_mutex_lock(&MCR1);
-        fprintf(file, "Thread 6 locked MCR1\n");
-        if(isFull())
-        {
-            while(isFull())
-            {
-//waits for notFULL;
-                pthread_cond_wait(&Sig1,&MCR1);
-            }
-        }
-        current++;
-        push_back(current + 1);
-        fprintf(file, "Thread 6 pushed_back value %d into CR1\n", current);
-        pthread_mutex_unlock(&MCR1);
-        fprintf(file, "Thread 6 unlocked mutex MCR1\n");
-        pthread_cond_broadcast(&Sig2); // notEmpty
-        fprintf(file, "Thread 6 sending Sig2\n");
+        if(isEmpty()) break;
+        //модифікація атомарних !!Зроблено!!
+        fprintf(file, "P6 modifies atomic\n");
+        atomic_change();
+        //if(isExit()) break;
+        //синхронізація через бар'єр Р3 і Р6 
+
+        pthread_barrier_wait(&BCR2);
+        //Sig21 !!Зроблено!! 
+
+        pthread_mutex_lock(&Sig21_mutex);
+        fprintf(file,"Tread 6 locked Sig21_mutex \n");
+        flag21_P3P6_P2 = 1;
+        flag21_P3P6_P5 = 1;
+        pthread_cond_broadcast(&Sig21);
+        fprintf(file, "Thread 6 UNlocked Sig21_mutex \n");
+        pthread_mutex_unlock(&Sig21_mutex);
+
+
+
+
+        //використання атомарних операцій
+        fprintf(file, "P6 using atomic\n");//операция над атомарными переменными
+        int s = __sync_fetch_and_add(&k, 0);
+        s = s + __sync_add_and_fetch(&k2, 0);
+
     }
     pthread_cancel(thread1);
     fprintf(file, "p6| p1 canceled\n");
@@ -381,20 +398,28 @@ void* P6(void* arg)
 
 int main(int argc, char *argv[])
 {
-    logFile = stdout;
-	if(argc > 1)
-	{
-		producerSleepMSEnabled = false;
-		consumerSleepMSEnabled = false;
-	}
-    if(0)
-    {
-		logFile = fopen("/student/Univer/PP/Lab_4/Tests/Test_2/logFile.txt", "wt");
-	}
+    file = fopen("out.log", "w");
+    if(file == NULL) return 2;
+//initializing semapthores with closed status
+    sem_init (&sem_q, 0, 0);
+    pthread_barrier_init(&BCR2, NULL, 2);
 
-    sem_init(&SCR21, 0, 0);
-    sem_init(&SCR22, 0, 0);
-    thread_func_start_macro();
+    int sem_value;
+    sem_getvalue(&sem_q, &sem_value);
+    fprintf(file, "Semaphore = %d\n",sem_value);
+
+    int length_at_start = 2;
+
+    for(int i = 0; i < length_at_start; i++){
+        Set(rand() % 1000);
+    }
+
+    fprintf(file, "Array filled by elements from 0-th to %d-th \n",length_at_start - 1);
+
+
+    sem_getvalue(&sem_q,&sem_value);
+    fprintf(file, "Semaphore = %d\n",sem_value);
+
     pthread_create(&thread1, NULL, &P1, NULL);
     pthread_create(&thread2, NULL, &P2, NULL);
     pthread_create(&thread3, NULL, &P3, NULL);
@@ -402,14 +427,14 @@ int main(int argc, char *argv[])
     pthread_create(&thread5, NULL, &P5, NULL);
     pthread_create(&thread6, NULL, &P6, NULL);
 
-    thread_join_macro(thread1, NULL);
-    thread_join_macro(thread2, NULL);
-    thread_join_macro(thread3, NULL);
-    thread_join_macro(thread4, NULL);
-    thread_join_macro(thread5, NULL);
-    thread_join_macro(thread6, NULL);
-    thread_func_finish_macro();
+    pthread_join(thread1, NULL);
+    pthread_join(thread2, NULL);
+    pthread_join(thread3, NULL);
+    pthread_join(thread4, NULL);
+    pthread_join(thread5, NULL);
+    pthread_join(thread6, NULL);
 
-    fclose(logFile);
+
+   // fclose(logFile);
     return 0;
 }
