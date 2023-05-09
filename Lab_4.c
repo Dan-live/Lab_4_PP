@@ -109,7 +109,6 @@ void* P1(void* arg)
     fprintf(file,"Thread 1 is started\n");
     while(1)
     {
-        //if(isFull() || isEmpty()) break;
         if (isExit() || num_of_operations <= 0) break;
 
         sem_getvalue(&sem_q,&sem_value);
@@ -151,7 +150,6 @@ void* P2(void* arg)
     fprintf(file,"Thread 2 is started\n");
     while(1)
     {
-        //if(isFull() || isEmpty()) break;
          if (isExit() || num_of_operations <= 0) break;
         //доступ до буфера за допомогою семафора та м'ютекса
         
@@ -218,7 +216,6 @@ void* P3(void* arg)
     fprintf(file,"Thread 3 is started\n");
     while(1)
     {
-        //if(isEmpty()) break;
         if (isExit() || num_of_operations <= 0) break;
         //модифікація атомарних змінних 
         fprintf(file,"Thread 3 modified atomic\n");
@@ -226,7 +223,7 @@ void* P3(void* arg)
         //синхронізуємо через бар'єр Р3 і Р6
 
         pthread_barrier_wait(&BCR2);
-        //Sig21 !!Зроблено!!
+        //Sig21 
         
         pthread_mutex_lock(&Sig21_mutex);
         fprintf(file,"Tread 3 locked Sig21_mutex \n");
@@ -263,7 +260,6 @@ void* P4(void* arg)
     fprintf(file,"Thread 4 is started\n");
     while(1)
     {
-        //if(isFull() || isEmpty()) break;
          if (isExit() || num_of_operations <= 0) break;
         //доступ до буфера за допомогою семафора та м'ютекса 
         sem_wait(&sem_q);
@@ -299,7 +295,6 @@ void* P5(void* arg)
     int sem_value;
     while(1)
     {
-        //if(isFull() || isEmpty()) break;
          if (isExit() || num_of_operations <= 0) break;
         //доступ до буфера за допомогою семафора та м'ютекса 
         sem_wait(&sem_q);
@@ -354,7 +349,6 @@ void* P6(void* arg)
     fprintf(file,"Thread 6 is started\n");
     while(1)
     {
-        //if(isEmpty()) break;
         if (isExit() || num_of_operations <= 0) break;
         //модифікація атомарних 
         fprintf(file, "P6 modifies atomic\n");
