@@ -48,8 +48,14 @@ long int c = 11111111;
 long int c2 = -3333333;
 unsigned long int d = 22222222;
 unsigned long int d2 = 121212123;
-
-
+int full_break = 0;
+int empty_break = 0;
+int num_of_operations = 60;
+//int amountExit = 0; 
+int isExit()
+{
+    return full_break >= 2 && empty_break >=2;
+}
 int isFull()
 {
 	return CurrentSize >= SIZE;
@@ -103,7 +109,8 @@ void* P1(void* arg)
     fprintf(file,"Thread 1 is started\n");
     while(1)
     {
-        if(isFull() || isEmpty()) break;
+        //if(isFull() || isEmpty()) break;
+        if (isExit() || num_of_operations <= 0) break;
 
         sem_getvalue(&sem_q,&sem_value);
         if (sem_value < SIZE) 
@@ -117,11 +124,12 @@ void* P1(void* arg)
 
             sem_getvalue(&sem_q,&sem_value);
             fprintf(file, "P1(Produser) write %d to CR1", num);
-        
+            if(isFull()) full_break++;
+            num_of_operations--;
+
             pthread_mutex_unlock(&MCR1);
             fprintf(file, "Thread 1 unlocked mutex MCR1\n");
             sem_post (&sem_q);
-            fprintf(file, "Thread 1 end\n");
         }
     }
     pthread_cancel(thread2);
@@ -143,7 +151,8 @@ void* P2(void* arg)
     fprintf(file,"Thread 2 is started\n");
     while(1)
     {
-        if(isFull() || isEmpty()) break;
+        //if(isFull() || isEmpty()) break;
+         if (isExit() || num_of_operations <= 0) break;
         //доступ до буфера за допомогою семафора та м'ютекса
         
         sem_getvalue(&sem_q,&sem_value);
@@ -158,7 +167,9 @@ void* P2(void* arg)
 
             sem_getvalue(&sem_q,&sem_value);
             fprintf(file, "P2(Produser) write %d to CR1", num);
-        
+            if(isFull()) full_break++;
+            num_of_operations--;
+
             pthread_mutex_unlock(&MCR1);
             fprintf(file, "Thread 2 unlocked mutex MCR1\n");
             sem_post (&sem_q);
@@ -207,7 +218,8 @@ void* P3(void* arg)
     fprintf(file,"Thread 3 is started\n");
     while(1)
     {
-        if(isEmpty()) break;
+        //if(isEmpty()) break;
+        if (isExit() || num_of_operations <= 0) break;
         //модифікація атомарних змінних 
         fprintf(file,"Thread 3 modified atomic\n");
         atomic_change();
@@ -220,6 +232,7 @@ void* P3(void* arg)
         fprintf(file,"Tread 3 locked Sig21_mutex \n");
         flag21_P3P6_P2 = 1;
         pthread_cond_signal(&Sig21);
+        num_of_operations--;
         fprintf(file, "Thread 3 UNlocked Sig21_mutex \n");
         pthread_mutex_unlock(&Sig21_mutex);
 
@@ -250,7 +263,8 @@ void* P4(void* arg)
     fprintf(file,"Thread 4 is started\n");
     while(1)
     {
-        if(isFull() || isEmpty()) break;
+        //if(isFull() || isEmpty()) break;
+         if (isExit() || num_of_operations <= 0) break;
         //доступ до буфера за допомогою семафора та м'ютекса 
         sem_wait(&sem_q);
         pthread_mutex_lock(&MCR1);
@@ -258,7 +272,9 @@ void* P4(void* arg)
 
         sem_getvalue(&sem_q, &sem_value);
         fprintf(file, "Thread 4 get value %d from CR1\n", value);
-        
+        if(isEmpty()) empty_break++;
+        num_of_operations--;
+
         pthread_mutex_unlock(&MCR1);
         fprintf(file, "Thread 4 unlocked mutex MCR1\n");
         fprintf(file, "Thread 4 end\n");
@@ -283,7 +299,8 @@ void* P5(void* arg)
     int sem_value;
     while(1)
     {
-        if(isFull() || isEmpty()) break;
+        //if(isFull() || isEmpty()) break;
+         if (isExit() || num_of_operations <= 0) break;
         //доступ до буфера за допомогою семафора та м'ютекса 
         sem_wait(&sem_q);
         pthread_mutex_lock(&MCR1);
@@ -291,7 +308,9 @@ void* P5(void* arg)
 
         sem_getvalue(&sem_q, &sem_value);
         fprintf(file, "Thread 5 get value %d from CR1\n", value);
-        
+        if(isEmpty()) empty_break++;
+        num_of_operations--;
+
         pthread_mutex_unlock(&MCR1);
         fprintf(file, "Thread 5 unlocked mutex MCR1\n");
 
@@ -335,7 +354,8 @@ void* P6(void* arg)
     fprintf(file,"Thread 6 is started\n");
     while(1)
     {
-        if(isEmpty()) break;
+        //if(isEmpty()) break;
+        if (isExit() || num_of_operations <= 0) break;
         //модифікація атомарних 
         fprintf(file, "P6 modifies atomic\n");
         atomic_change();
@@ -348,6 +368,8 @@ void* P6(void* arg)
         fprintf(file,"Tread 6 locked Sig21_mutex \n");
         flag21_P3P6_P2 = 1;
         flag21_P3P6_P5 = 1;
+        num_of_operations--;
+        
         pthread_cond_broadcast(&Sig21);
         fprintf(file, "Thread 6 UNlocked Sig21_mutex \n");
         pthread_mutex_unlock(&Sig21_mutex);
@@ -374,7 +396,7 @@ void* P6(void* arg)
 
 int main(int argc, char *argv[])
 {
-    file = fopen("out.log", "w");
+    file = fopen("logs/out.log", "w");
     if(file == NULL) return 2;
 //ініціалізуємо семафор у закритому стані
     sem_init (&sem_q, 0, 0);
