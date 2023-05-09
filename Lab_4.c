@@ -14,13 +14,7 @@ pthread_t thread3;
 pthread_t thread4;
 pthread_t thread5;
 pthread_t thread6;
-//initialising functions for each thread
-// void* P1(void*);
-// void* P2(void*);
-// void* P3(void*);
-// void* P4(void*);
-// void* P5(void*);
-// void* P6(void*)
+
 
 sem_t sem_q;
 pthread_mutex_t MCR1 = PTHREAD_MUTEX_INITIALIZER;
@@ -44,8 +38,8 @@ typedef struct
 } VectorBuffer;
 
 VectorBuffer buff = {{{0}}, 0, 0};
-////////////
-//блок атомарных переменных
+
+//блок атомарних змінних
 int k = 12;
 int k2 = -1222;
 unsigned int b = 12123;
@@ -54,18 +48,7 @@ long int c = 11111111;
 long int c2 = -3333333;
 unsigned long int d = 22222222;
 unsigned long int d2 = 121212123;
-//////////////////////
-//int amountExit = 0;
 
-// void checking()
-// {
-//     if(isFull() || isEmpty())
-//         amountExit++;
-// }
-// int isExit()
-// {
-//     return amountExit >= 2;
-// }
 
 int isFull()
 {
@@ -98,7 +81,6 @@ int Get()
 
 void atomic_change()
 {
-
     __sync_fetch_and_and (&k, 1);
     __sync_fetch_and_add (&k2, 1);
 
@@ -109,12 +91,12 @@ void atomic_change()
     __sync_xor_and_fetch (&c2, 5);
 
     __sync_bool_compare_and_swap(&d, 22222222, 3);
-__sync_val_compare_and_swap(&d2, 2, 3);
+    __sync_val_compare_and_swap(&d2, 2, 3);
 
 }
 
 
-void* P1(void* arg)//зроблено
+void* P1(void* arg)
 {
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
     int sem_value;
@@ -158,7 +140,6 @@ void* P2(void* arg)
 {
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
     int sem_value;
-    //long getvalue;
     fprintf(file,"Thread 2 is started\n");
     while(1)
     {
@@ -182,7 +163,7 @@ void* P2(void* arg)
             fprintf(file, "Thread 2 unlocked mutex MCR1\n");
             sem_post (&sem_q);
         }
-        //Sig21 !!Зроблено!!
+        //Sig21 
 
         pthread_mutex_lock(&Sig21_mutex);
 
@@ -227,7 +208,7 @@ void* P3(void* arg)
     while(1)
     {
         if(isEmpty()) break;
-        //модифікація атомарних змінних !!Зроблено!! 
+        //модифікація атомарних змінних 
         fprintf(file,"Thread 3 modified atomic\n");
         atomic_change();
         //синхронізуємо через бар'єр Р3 і Р6
@@ -262,7 +243,7 @@ void* P3(void* arg)
     fprintf(file, "p3| p6 canceled\n");
     return NULL;
 }
-void* P4(void* arg)//зроблено
+void* P4(void* arg)
 {
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
     int sem_value;
@@ -313,9 +294,8 @@ void* P5(void* arg)
         
         pthread_mutex_unlock(&MCR1);
         fprintf(file, "Thread 5 unlocked mutex MCR1\n");
-        //fprintf(file, "Thread 5 end\n");
 
-        //Sig21  !!Зроблено!!
+        //Sig21 
         pthread_mutex_lock(&Sig21_mutex);
 
         while(flag21_P3P6_P5 == 0)
@@ -356,14 +336,13 @@ void* P6(void* arg)
     while(1)
     {
         if(isEmpty()) break;
-        //модифікація атомарних !!Зроблено!!
+        //модифікація атомарних 
         fprintf(file, "P6 modifies atomic\n");
         atomic_change();
-        //if(isExit()) break;
         //синхронізація через бар'єр Р3 і Р6 
 
         pthread_barrier_wait(&BCR2);
-        //Sig21 !!Зроблено!! 
+        //Sig21 
 
         pthread_mutex_lock(&Sig21_mutex);
         fprintf(file,"Tread 6 locked Sig21_mutex \n");
@@ -373,11 +352,8 @@ void* P6(void* arg)
         fprintf(file, "Thread 6 UNlocked Sig21_mutex \n");
         pthread_mutex_unlock(&Sig21_mutex);
 
-
-
-
         //використання атомарних операцій
-        fprintf(file, "P6 using atomic\n");//операция над атомарными переменными
+        fprintf(file, "P6 using atomic\n");
         int s = __sync_fetch_and_add(&k, 0);
         s = s + __sync_add_and_fetch(&k2, 0);
 
@@ -400,7 +376,7 @@ int main(int argc, char *argv[])
 {
     file = fopen("out.log", "w");
     if(file == NULL) return 2;
-//initializing semapthores with closed status
+//ініціалізуємо семафор у закритому стані
     sem_init (&sem_q, 0, 0);
     pthread_barrier_init(&BCR2, NULL, 2);
 
@@ -408,13 +384,13 @@ int main(int argc, char *argv[])
     sem_getvalue(&sem_q, &sem_value);
     fprintf(file, "Semaphore = %d\n",sem_value);
 
-    int length_at_start = 2;
+    int first_length = 2;
 
-    for(int i = 0; i < length_at_start; i++){
+    for(int i = 0; i < first_length; i++){
         Set(rand() % 1000);
     }
 
-    fprintf(file, "Array filled by elements from 0-th to %d-th \n",length_at_start - 1);
+    fprintf(file, "Array filled by elements from 0-th to %d-th \n",first_length - 1);
 
 
     sem_getvalue(&sem_q,&sem_value);
