@@ -433,6 +433,5 @@ int main(int argc, char *argv[])
     pthread_join(thread6, NULL);
 
 
-   // fclose(logFile);
     return 0;
 }
