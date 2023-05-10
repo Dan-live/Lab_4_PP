@@ -122,12 +122,13 @@ void* P1(void* arg)
             Set(num);
 
             sem_getvalue(&sem_q,&sem_value);
-            fprintf(file, "P1(Produser) write %d to CR1", num);
+            fprintf(file, "P1(Produser) write %d to CR1\n", num);
             if(isFull()) full_break++;
             num_of_operations--;
 
-            pthread_mutex_unlock(&MCR1);
             fprintf(file, "Thread 1 unlocked mutex MCR1\n");
+            pthread_mutex_unlock(&MCR1);
+            
             sem_post (&sem_q);
         }
     }
@@ -164,17 +165,19 @@ void* P2(void* arg)
             Set(num);
 
             sem_getvalue(&sem_q,&sem_value);
-            fprintf(file, "P2(Produser) write %d to CR1", num);
+            fprintf(file, "P2(Produser) write %d to CR1\n", num);
             if(isFull()) full_break++;
             num_of_operations--;
 
-            pthread_mutex_unlock(&MCR1);
             fprintf(file, "Thread 2 unlocked mutex MCR1\n");
+            pthread_mutex_unlock(&MCR1);
+            
             sem_post (&sem_q);
         }
         //Sig21 
 
         pthread_mutex_lock(&Sig21_mutex);
+        fprintf(file, "Thread 2 locked Sig21_mutex\n");
 
         while(flag21_P3P6_P2 == 0)
         {
@@ -185,8 +188,9 @@ void* P2(void* arg)
         flag21_P3P6_P2 = 0;
         fprintf(file,"Thread 2 changed flag21_P3P6_P2\n");
 
-        pthread_mutex_unlock(&Sig21_mutex);
         fprintf(file,"Thread 2 unlocked Sig21_mutex\n");
+        pthread_mutex_unlock(&Sig21_mutex);
+        
 
         //використання а потім модифікація сигнальних змінних 
         
@@ -227,9 +231,11 @@ void* P3(void* arg)
         
         pthread_mutex_lock(&Sig21_mutex);
         fprintf(file,"Tread 3 locked Sig21_mutex \n");
+
         flag21_P3P6_P2 = 1;
         pthread_cond_signal(&Sig21);
         num_of_operations--;
+
         fprintf(file, "Thread 3 UNlocked Sig21_mutex \n");
         pthread_mutex_unlock(&Sig21_mutex);
 
@@ -263,7 +269,10 @@ void* P4(void* arg)
          if (isExit() || num_of_operations <= 0) break;
         //доступ до буфера за допомогою семафора та м'ютекса 
         sem_wait(&sem_q);
+
         pthread_mutex_lock(&MCR1);
+        fprintf(file, "Thread 4 locked MCR1\n");
+
         int value = Get();
 
         sem_getvalue(&sem_q, &sem_value);
@@ -271,9 +280,9 @@ void* P4(void* arg)
         if(isEmpty()) empty_break++;
         num_of_operations--;
 
-        pthread_mutex_unlock(&MCR1);
         fprintf(file, "Thread 4 unlocked mutex MCR1\n");
-        fprintf(file, "Thread 4 end\n");
+        pthread_mutex_unlock(&MCR1);
+        
     }
     
     pthread_cancel(thread1);
@@ -298,7 +307,10 @@ void* P5(void* arg)
          if (isExit() || num_of_operations <= 0) break;
         //доступ до буфера за допомогою семафора та м'ютекса 
         sem_wait(&sem_q);
+
         pthread_mutex_lock(&MCR1);
+        fprintf(file, "Thread 5 locked MCR1\n");
+        
         int value = Get();
 
         sem_getvalue(&sem_q, &sem_value);
@@ -306,11 +318,14 @@ void* P5(void* arg)
         if(isEmpty()) empty_break++;
         num_of_operations--;
 
-        pthread_mutex_unlock(&MCR1);
         fprintf(file, "Thread 5 unlocked mutex MCR1\n");
+        pthread_mutex_unlock(&MCR1);
+        
 
         //Sig21 
+        
         pthread_mutex_lock(&Sig21_mutex);
+        fprintf(file, "Thread 5 locked mutex Sig21_mutex\n");
 
         while(flag21_P3P6_P5 == 0)
         {
@@ -321,8 +336,9 @@ void* P5(void* arg)
         flag21_P3P6_P5 = 0;
         fprintf(file,"Thread 5 changed flag21_P3P6_P5\n");
 
-        pthread_mutex_unlock(&Sig21_mutex);
         fprintf(file,"Thread 5 unlocked Sig2_mutex\n");
+        pthread_mutex_unlock(&Sig21_mutex);
+        
 
         //використання атомарних змінних
         fprintf(file,"Thread 5 use atomic\n");
@@ -365,6 +381,7 @@ void* P6(void* arg)
         num_of_operations--;
         
         pthread_cond_broadcast(&Sig21);
+
         fprintf(file, "Thread 6 UNlocked Sig21_mutex \n");
         pthread_mutex_unlock(&Sig21_mutex);
 
